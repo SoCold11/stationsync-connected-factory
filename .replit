@@ -1,0 +1,7 @@
+run = "npm run dev"
+entrypoint = "src/main.tsx"
+modules = ["nodejs-22"]
+[env]
+PORT = "5173"
+[deployment]
+run = ["sh", "-c", "npm run dev -- --host 0.0.0.0 --port ${PORT:-5173}"]
