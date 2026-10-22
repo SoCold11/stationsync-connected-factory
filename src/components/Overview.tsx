@@ -1,5 +1,6 @@
 import { ArrowRight, Boxes, CheckCheck, Factory, MapPin, ShieldAlert, Waypoints } from 'lucide-react';
 import { evaluateAsset } from '../domain/evaluate';
+import { calculateStationHealth } from '../domain/stationHealth';
 import type { FactoryState } from '../domain/types';
 import { SectionHeading, StatusPill } from './Shared';
 export function Overview({ state, onStation, onAsset }: { state: FactoryState; onStation: (id: string) => void; onAsset: (id: string) => void }) {
@@ -18,13 +19,11 @@ export function Overview({ state, onStation, onAsset }: { state: FactoryState; o
     </div>
     <SectionHeading eyebrow="PRODUCTION LINE" title="Work centers" description="Select a station to inspect its assigned assets and any unexpected physical observations." />
     <div className="station-grid">{state.stations.map((station, i) => {
-      const assigned = state.assets.filter(a => state.expected[a.id]?.stationId === station.id);
-      const issueCount = assigned.filter(a => evaluations[a.id].status !== 'In sync').length;
-      const unexpected = state.assets.filter(a => state.observations[a.id]?.stationId === station.id && state.expected[a.id]?.stationId !== station.id);
+      const health = calculateStationHealth(state, station.id);
       return <button className="station-card card" key={station.id} onClick={() => onStation(station.id)}>
-        <div className="station-top"><div className="station-index">0{i+1}</div><span className={`station-status ${issueCount ? 'attention' : 'clear'}`}>{issueCount ? `${issueCount} issue${issueCount!==1?'s':''}` : 'All clear'}</span></div>
+        <div className="station-top"><div className="station-index">0{i+1}</div><span className={`station-status ${health.exceptionCount ? 'attention' : 'clear'}`}>{health.exceptionCount ? `${health.exceptionCount} issue${health.exceptionCount!==1?'s':''}` : 'All clear'}</span></div>
         <div className="station-icon"><Factory size={24}/></div><h3>{station.id}</h3><p>{station.name}</p>
-        <div className="station-stats"><span><Boxes size={15}/>{assigned.length} assigned</span>{unexpected.length > 0 && <span className="unexpected"><MapPin size={14}/>{unexpected.length} unexpected</span>}</div>
+        <div className="station-stats"><span><Boxes size={15}/>{health.assignedCount} assigned</span>{health.unexpectedCount > 0 && <span className="unexpected"><MapPin size={14}/>{health.unexpectedCount} unexpected</span>}</div>
         <div className="station-bottom"><span>View station</span><ArrowRight size={17}/></div>
       </button>;
     })}</div>

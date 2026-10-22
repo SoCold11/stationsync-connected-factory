@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSeedState } from '../src/data/seed';
 import { evaluateAsset, evidenceIsFresh, makeProposal, systemMismatches } from '../src/domain/evaluate';
+import { calculateStationHealth } from '../src/domain/stationHealth';
 import { writeAndVerify } from '../src/services/systemAdapters';
 
 describe('Factory reconciliation policy', () => {
@@ -32,6 +33,32 @@ describe('Factory reconciliation policy', () => {
   it('observing at a new location is evidence not authority', () => {
     const s=createSeedState(); s.observations['TT-1842']={...s.observations['TT-1842']!,stationId:'A-102'};
     expect(evaluateAsset(s,'TT-1842').status).toBe('Physical mismatch');expect(s.expected['TT-1842'].stationId).toBe('A-104');
+  });
+  it('counts unexpected observed assets in station health without inflating unique factory attention', () => {
+    const s=createSeedState();
+    const uniqueAttention=s.assets.filter(asset=>evaluateAsset(s,asset.id).status!=='In sync').length;
+    const localExceptions=s.stations.reduce((total,station)=>total+calculateStationHealth(s,station.id).exceptionCount,0);
+    expect(uniqueAttention).toBe(4);
+    expect(localExceptions).toBe(5);
+
+    s.records['SC-218'].AMS={...s.records['SC-218'].AMS,stationId:'A-104'};
+    s.records['PLC-44'].MES={...s.records['PLC-44'].MES,stationId:'A-104',registered:true};
+    expect(calculateStationHealth(s,'A-104')).toMatchObject({
+      assignedCount:3,
+      assignedIssueCount:0,
+      unexpectedCount:1,
+      exceptionCount:1,
+    });
+
+    s.expected['TT-1920']={...s.expected['TT-1920'],stationId:'A-104',version:2};
+    s.records['TT-1920'].AMS={...s.records['TT-1920'].AMS,stationId:'A-104'};
+    s.records['TT-1920'].MES={...s.records['TT-1920'].MES,stationId:'A-104'};
+    expect(evaluateAsset(s,'TT-1920').status).toBe('In sync');
+    expect(calculateStationHealth(s,'A-104')).toMatchObject({
+      assignedIssueCount:0,
+      unexpectedCount:0,
+      exceptionCount:0,
+    });
   });
   it('shows unresolved partial sync, preserves success and limits retry to failed target', () => {
     const s=createSeedState();
